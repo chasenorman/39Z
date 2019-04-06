@@ -12,7 +12,7 @@ leftFront = vex.Motor(vex.Ports.PORT17, vex.GearSetting.RATIO18_1, False)
 leftBack = vex.Motor(vex.Ports.PORT2, vex.GearSetting.RATIO18_1, False)
 rightBack = vex.Motor(vex.Ports.PORT1, vex.GearSetting.RATIO18_1, True)
 rightFront = vex.Motor(vex.Ports.PORT18, vex.GearSetting.RATIO18_1, True)
-swerve = vex.Motor(vex.Ports.PORT15, vex.GearSetting.RATIO36_1, True)
+swerve = vex.Motor(vex.Ports.PORT15, vex.GearSetting.RATIO18_1, True)
 
 catapult = vex.Motor(vex.Ports.PORT13, vex.GearSetting.RATIO36_1, True)
 intake = vex.Motor(vex.Ports.PORT14, vex.GearSetting.RATIO18_1, True)
@@ -64,7 +64,7 @@ class PID:
         self.target = t
 
 
-swervePID = PID(700, 0, 0)
+swervePID = PID(200, 0, 0)
 visionPID = PID(0.33, 0.01, 0)
 basePID = PID(0.33, 0.01, 0)
 
@@ -85,7 +85,7 @@ def base(lf, lb, rb, rf):
 
 
 def cant_control(a):
-    swervePID.set_target(3 * a / (2 * math.pi))
+    swervePID.target = 3 * a / (2 * math.pi)
 
 
 def vision_control():
@@ -125,6 +125,28 @@ def tare_base():
     rightFront.reset_rotation()
     rightBack.reset_rotation()
 
+
+def brake_base():
+    leftFront.stop(vex.BrakeType.HOLD)
+    leftBack.stop(vex.BrakeType.HOLD)
+    rightFront.stop(vex.BrakeType.HOLD)
+    rightBack.stop(vex.BrakeType.HOLD)
+
+
+def unbrake_base():
+    leftFront.stop(vex.BrakeType.BRAKE)
+    leftBack.stop(vex.BrakeType.BRAKE)
+    rightFront.stop(vex.BrakeType.BRAKE)
+    rightBack.stop(vex.BrakeType.BRAKE)
+
+def toggle_brake():
+    global braking
+    braking = not braking
+
+    if braking:
+        brake_base()
+    else:
+        unbrake_base()
 
 def catapult_control():
     # 3:5
@@ -254,19 +276,7 @@ def c1a():
 
 
 def c1b():
-    global braking
-    braking = not braking
-
-    if braking:
-        leftFront.stop(vex.BrakeType.HOLD)
-        leftBack.stop(vex.BrakeType.HOLD)
-        rightFront.stop(vex.BrakeType.HOLD)
-        rightBack.stop(vex.BrakeType.HOLD)
-    else:
-        leftFront.stop(vex.BrakeType.BRAKE)
-        leftBack.stop(vex.BrakeType.BRAKE)
-        rightFront.stop(vex.BrakeType.BRAKE)
-        rightBack.stop(vex.BrakeType.BRAKE)
+    toggle_brake()
 
 
 def c1x():
@@ -278,35 +288,19 @@ def c1y():
 
 
 def c2l1():
-    global runIntake
-    if runIntake != -1:
-        runIntake = -1
-    else:
-        runIntake = 0
+    toggle_intake(-100)
 
 
 def c2l2():
-    global runIntake
-    if runIntake != -1:
-        runIntake = -1
-    else:
-        runIntake = 0
+    toggle_intake(-100)
 
 
 def c2r1():
-    global runIntake
-    if runIntake != 1:
-        runIntake = 1
-    else:
-        runIntake = 0
+    toggle_intake(100)
 
 
 def c2r2():
-    global runIntake
-    if runIntake != 1:
-        runIntake = 1
-    else:
-        runIntake = 0
+    toggle_intake(100)
 
 
 def c2a():
@@ -314,20 +308,7 @@ def c2a():
 
 
 def c2b():
-    global braking
-    braking = not braking
-
-    if braking:
-        leftFront.stop(vex.BrakeType.HOLD)
-        leftBack.stop(vex.BrakeType.HOLD)
-        rightFront.stop(vex.BrakeType.HOLD)
-        rightBack.stop(vex.BrakeType.HOLD)
-    else:
-        leftFront.stop(vex.BrakeType.BRAKE)
-        leftBack.stop(vex.BrakeType.BRAKE)
-        rightFront.stop(vex.BrakeType.BRAKE)
-        rightBack.stop(vex.BrakeType.BRAKE)
-
+    toggle_brake()
 
 def c2x():
     pass
@@ -342,6 +323,10 @@ def shoot():
     catapultTarget += 5
 
 
+def toggle_intake(value):
+    global runIntake
+    runIntake = value if runIntake != value else 0
+
 # Do not adjust the lines below
 # Set up (but don't start) callbacks for autonomous and driver control periods.
 competition.autonomous(autonomous)
@@ -352,36 +337,35 @@ pre_auton()
 
 # Robot Mesh Studio runtime continues to run until all threads and
 # competition callbacks are finished.
-buttons = [controller1.buttonL1,
-           controller1.buttonL2,
-           controller1.buttonR1,
-           controller1.buttonR2,
-           controller1.buttonA,
-           controller1.buttonB,
-           controller1.buttonX,
-           controller1.buttonY,
-           controller2.buttonL1,
-           controller2.buttonL2,
-           controller2.buttonR1,
-           controller2.buttonR2,
-           controller2.buttonA,
-           controller2.buttonB,
-           controller2.buttonX,
-           controller2.buttonY]
-buttonMethods = [c1l1, c1l2, c1r1, c1r2, c1a, c1b, c1x, c1y, c2l1, c2l2, c2r1, c2r2, c2a, c2b, c2x, c2y]
 
-# Prevent main from exiting with an infinite loop.
+buttonState = {}
 
-for button in buttons:
-    button.state = False
+buttons = [(controller1.buttonL1, c1l1),
+           (controller1.buttonL2, c1l2),
+           (controller1.buttonR1, c1r1),
+           (controller1.buttonR2, c1r2),
+           (controller1.buttonA, c1a),
+           (controller1.buttonB, c1b),
+           (controller1.buttonX, c1x),
+           (controller1.buttonY, c1y),
+           (controller2.buttonL1, c2l1),
+           (controller2.buttonL2, c2l2),
+           (controller2.buttonR1, c2r1),
+           (controller2.buttonR2, c2r2),
+           (controller2.buttonA, c2a),
+           (controller2.buttonB, c2b),
+           (controller2.buttonX, c2x),
+           (controller2.buttonY, c2y)]
+
+for button, method in buttons:
+    buttonState[button] = False
 
 while True:
-    v = swervePID.apply(swerve.rotation(vex.RotationUnits.REV))
-    swerve.spin(vex.DirectionType.FWD, v, vex.VelocityUnits.PCT)
-    intake.spin(vex.DirectionType.FWD, runIntake*100, vex.VelocityUnits.PCT)
+    swerve.spin(vex.DirectionType.FWD, swervePID.apply(swerve.rotation(vex.RotationUnits.REV)), vex.VelocityUnits.PCT)
+    intake.spin(vex.DirectionType.FWD, runIntake, vex.VelocityUnits.PCT)
     catapult_control()
-    sys.sleep(0.02)  # Sleep the task for a short amount of time to prevent wasted resources.
-    for (button, method) in zip(buttons,buttonMethods):
-        if button.pressing() and not button.state:
+    for button, method in buttons:
+        if button.pressing() and not buttonState[button]:
             method()
-        button.state = button.pressing()
+        buttonState[button] = button.pressing()
+    sys.sleep(0.02)
