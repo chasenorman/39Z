@@ -24,9 +24,6 @@ vision1.set_brightness(50)
 green = vex.VisionSignature(1, -1375, -1011, -1193, -5539, -4449, -4994, 3, 0)
 vision1.set_signature(green)
 
-EPSILON = 10
-
-
 class PID:
     kP = 0
     kI = 0
@@ -108,8 +105,6 @@ def vision_control():
     visionPID.set_target(160)
     v = -visionPID.apply(vision1.largest_object.centerX)
     base(v, v, v, v)
-
-    return abs(v) < EPSILON
 
 
 def base_control(distance, velocity):
