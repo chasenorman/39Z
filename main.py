@@ -24,6 +24,7 @@ vision1.set_brightness(50)
 green = vex.VisionSignature(1, -1375, -1011, -1193, -5539, -4449, -4994, 3, 0)
 vision1.set_signature(green)
 
+
 class PID:
     kP = 0
     kI = 0
@@ -351,10 +352,6 @@ pre_auton()
 
 # Robot Mesh Studio runtime continues to run until all threads and
 # competition callbacks are finished.
-buttonState = [False, False, False, False, False, False, False, False,
-               False, False, False, False, False, False, False, False]
-buttonStatePrev = [False, False, False, False, False, False, False, False,
-                   False, False, False, False, False, False, False, False]
 buttons = [controller1.buttonL1,
            controller1.buttonL2,
            controller1.buttonR1,
@@ -374,16 +371,17 @@ buttons = [controller1.buttonL1,
 buttonMethods = [c1l1, c1l2, c1r1, c1r2, c1a, c1b, c1x, c1y, c2l1, c2l2, c2r1, c2r2, c2a, c2b, c2x, c2y]
 
 # Prevent main from exiting with an infinite loop.
+
+for button in buttons:
+    button.state = False
+
 while True:
     v = swervePID.apply(swerve.rotation(vex.RotationUnits.REV))
     swerve.spin(vex.DirectionType.FWD, v, vex.VelocityUnits.PCT)
     intake.spin(vex.DirectionType.FWD, runIntake*100, vex.VelocityUnits.PCT)
     catapult_control()
-    brain.screen.print_at(20, 20, True, catapultTarget)
-    brain.screen.print_at(20, 40, True, catapult.rotation(vex.RotationUnits.REV))
     sys.sleep(0.02)  # Sleep the task for a short amount of time to prevent wasted resources.
-    for i in range(len(buttonState)):
-        buttonStatePrev[i] = buttonState[i]
-        buttonState[i] = buttons[i].pressing()
-        if buttonStatePrev[i] and not buttonState[i]:
-            buttonMethods[i]()
+    for (button, method) in zip(buttons,buttonMethods):
+        if button.pressing() and not button.state:
+            method()
+        button.state = button.pressing()
